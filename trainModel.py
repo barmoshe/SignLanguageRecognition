@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-"""
-Script for training the cnn12 model.
-Based on https://github.com/jaredvasquez/CNN-HowManyFingers/blob/master/trainModel.ipynb
 
-@author: Netanel Azoulay
-@author: Roman Koifman
-"""
 
 import keras
 from keras.callbacks import ModelCheckpoint, CSVLogger
@@ -14,6 +7,7 @@ from projectParams import *
 from shutil import copyfile
 from cnn12 import imgDim, getModel
 import matplotlib.pyplot as plt
+
 
 import os
 
@@ -46,15 +40,18 @@ def trainModel():
 
     # Load training data with augmentation.
     train_datagen = ImageDataGenerator(rescale=1. / 255.,
-                                       rotation_range=10,  # randomly rotate up to 40 degrees.
-                                       width_shift_range=0.2,  # randomly shift range.
+                                       # randomly rotate up to 40 degrees.
+                                       rotation_range=10,
+                                       # randomly shift range.
+                                       width_shift_range=0.2,
                                        height_shift_range=0.2,
                                        shear_range=0.2,
                                        zoom_range=0.2,
                                        fill_mode="nearest")  # fill new pixels created by shift
 
     train_generator = train_datagen.flow_from_directory(trainFolder,
-                                                        target_size=(imgDim, imgDim),
+                                                        target_size=(
+                                                            imgDim, imgDim),
                                                         color_mode='grayscale',
                                                         batch_size=nbatch,
                                                         classes=classes,
@@ -65,13 +62,14 @@ def trainModel():
     valid_datagen = ImageDataGenerator(rescale=1. / 255.)
 
     valid_generator = valid_datagen.flow_from_directory(validFolder,
-                                                        target_size=(imgDim, imgDim),
+                                                        target_size=(
+                                                            imgDim, imgDim),
                                                         color_mode='grayscale',
                                                         batch_size=nbatch,
                                                         classes=classes,
                                                         class_mode="categorical")
 
-    model = getModel(weightsPath=modelWeights)  # Build cnn12 model.
+    model = getModel(weightsPath=None)  # Build cnn12 model.
     model.save(modelPath)
     model.summary()
 
@@ -87,7 +85,7 @@ def trainModel():
         csv_logger
     ]
 
-    history = model.fit_generator(
+    history = model.fit(
         train_generator,
         steps_per_epoch=step_size_train,
         epochs=epochs,
@@ -103,13 +101,15 @@ def trainModel():
     plt.subplot(1, 2, 1)
     nepochs = len(history.history['loss'])
     plt.plot(range(nepochs), history.history['loss'], 'r-', label='train')
-    plt.plot(range(nepochs), history.history['val_loss'], 'b-', label='validation')
+    plt.plot(range(nepochs),
+             history.history['val_loss'], 'b-', label='validation')
     plt.legend(prop={'size': epochs})
     plt.ylabel('loss')
     plt.xlabel('# of epochs')
     plt.subplot(1, 2, 2)
     plt.plot(range(nepochs), history.history['acc'], 'r-', label='train')
-    plt.plot(range(nepochs), history.history['val_acc'], 'b-', label='validation')
+    plt.plot(range(nepochs),
+             history.history['val_acc'], 'b-', label='validation')
     plt.legend(prop={'size': epochs})
     plt.ylabel('accuracy')
     plt.xlabel('# of epochs')

@@ -3,19 +3,17 @@ A deep network was constructed accepting input of image dimensions of 128 x 128 
 The network was constructed by following Karpathy's tutorial.
 Based on https://github.com/hemavakade/CNN-for-Image-Classification
 
-@author: Netanel Azoulay
-@author: Roman Koifman
 """
 
 from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Flatten, Dense, Dropout
-from keras.layers.advanced_activations import PReLU
+from keras.layers import PReLU
 from keras.layers.convolutional import ZeroPadding2D
-from keras.layers.normalization import BatchNormalization
+from tensorflow.keras.layers import BatchNormalization
 from keras.layers.pooling import AveragePooling2D
 from keras.models import Sequential
-from keras.optimizers import adam
 from projectParams import classes, imgDim, learnRate
+from keras.optimizers import Adam
 
 
 def getModel(weightsPath=None):
@@ -100,10 +98,11 @@ def getModel(weightsPath=None):
     model.add(Dense(len(classes), activation='softmax'))
 
     # opt = SGD(lr=learnRate, decay=1e-6, momentum=0.9, nesterov=True)
-    opt = adam(lr=learnRate)
-    model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+    opt = Adam(learning_rate=learnRate)
+    model.compile(loss="categorical_crossentropy",
+                  optimizer=opt, metrics=["accuracy"])
 
-    if weightsPath:
+    if weightsPath != None:
         try:
             model.load_weights(weightsPath)
             print("cnn12 weights loaded.")
