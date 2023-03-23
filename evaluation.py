@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Model evaluation script using the test dataset.
 
-@author: Netanel Azoulay
-@author: Roman Koifman
-"""
 
 from keras.preprocessing.image import ImageDataGenerator
 from projectParams import *

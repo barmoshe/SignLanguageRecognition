@@ -2,8 +2,6 @@
 """
 Main application. The GUI of the software.
 
-@author: Netanel Azoulay
-@author: Roman Koifman
 """
 
 import asyncio
@@ -19,8 +17,9 @@ from PIL import ImageDraw
 from keras.models import load_model
 from projectParams import *
 from utils import *
+from tkinter import ttk
 
-global text_file_num, e1, freq, glob_root
+global text_file_num, e1, sample_rate, glob_root
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
@@ -31,12 +30,13 @@ dataColor = (0, 255, 0)
 pred = ''
 prevPred = ''
 sentence = ""
-default_freq = 15
-count = default_freq
+default_sample_rate = 2
+count = default_sample_rate
 threshold = 0.8  # Between 0 and 1
+isOn = False
 
 
-async def predictImg(roi):
+async def predictImg(roi, test_mode=False):
     """
     Asynchronously prediction.
 
@@ -50,40 +50,47 @@ async def predictImg(roi):
     img = np.expand_dims(img, axis=-1)
     img = np.expand_dims(img, axis=0)
     vec = model.predict(img)
+    # print(np.argmax(vec[0]))
     pred = convertEnglishToHebrewLetter(classes[np.argmax(vec[0])])
     maxVal = np.amax(vec)
     if maxVal < threshold or pred == '':
         pred = ''
-        count = freq
+        count = sample_rate
     elif pred != prevPred:
         prevPred = pred
-        count = freq
+        count = sample_rate
     else:  # maxVal >= Threshold && pred == prevPred
         count = count - 1
         if count == 0:
-            count = freq
-            if pred == 'del':
-                sentence = sentence[:-1]
+            count = sample_rate
+            if not test_mode:
+                if pred == 'del':
+                    sentence = sentence[:-1]
+                else:
+                    sentence = sentence + pred
+                if pred == ' ':
+                    pred = 'space'
+                # print(finalizeHebrewString(sentence))
+                textForm.config(state=NORMAL)
+                textForm.delete(0, END)
+                textForm.insert(0, (finalizeHebrewString(sentence)))
+                textForm.config(state=DISABLED)
             else:
-                sentence = sentence + pred
-            if pred == ' ':
-                pred = 'space'
-            print(finalizeHebrewString(sentence))
-            textForm.config(state=NORMAL)
-            textForm.delete(0, END)
-            textForm.insert(0, (finalizeHebrewString(sentence)))
-            textForm.config(state=DISABLED)
+                print(isOn)
+                cv2.imwrite("lastRoi.jpg", cv2.cvtColor(
+                    roi, cv2.COLOR_RGB2BGR))
+                if isOn == False:
+                    show_popup("lastRoi.jpg")
 
 
 class App:
     def __init__(self, window, window_title, video_source=0):
-        global textForm, text_file_num, freq
-        window.geometry("700x620+400+100")  # x:y
+        global textForm, text_file_num, sample_rate
+        # window.geometry("700x620+400+100")  # x:y
         text_file_num = 1
-        freq = default_freq
+        sample_rate = default_sample_rate
         # create function add menu
-        self.create_menu(window)
-        window.resizable(False, False)
+        window.resizable(True, True)
         self.window = window
         self.window.title(window_title)
         self.video_source = video_source
@@ -99,23 +106,25 @@ class App:
         self.txt_label = tkinter.Label(window, text="The translated text :")
         self.txt_label.place(x=50, y=490)
 
-        self.txt_box = tkinter.Entry(window, justify=RIGHT, font="Helvetica 18 bold")
+        self.txt_box = tkinter.Entry(
+            window, justify=RIGHT, font="Helvetica 18 bold")
         #   self.Entry1.place(relx=0.283, rely=0.422, height=144, relwidth=0.557)
         self.txt_box.place(x=180, y=490, height=90, width=350)
         self.txt_box.configure(width=334)
         textForm = self.txt_box
         textForm.config(state=DISABLED)
 
-        image = Image.open("Resources\save_icon.png")
+        image = Image.open("Resources/save_icon.png")
         img = ImageTk.PhotoImage(image)
         self.save_but = tkinter.Button(window, text="save text", width=50, height=50, image=img,
                                        command=self.click_on_save)
         self.save_but.place(x=555, y=510)
 
-        del_img = Image.open("Resources\del_img.png")
-        del_img = del_img.resize((20, 20), Image.ANTIALIAS)
+        del_img = Image.open("Resources/del_img.png")
+        del_img = del_img.resize((20, 20), Image.LANCZOS)
         img_del = ImageTk.PhotoImage(del_img)
-        self.clear_but = tkinter.Button(window, image=img_del, command=self.clear_txt_box)
+        self.clear_but = tkinter.Button(
+            window, image=img_del, command=self.clear_txt_box)
         self.clear_but.place(x=155, y=556)
         self.clean_label = tkinter.Label(window, text="Clear text")
         self.clean_label.place(x=145, y=580)
@@ -130,19 +139,6 @@ class App:
         self.delay = 1
         self.update()
         self.window.mainloop()
-
-    def create_menu(self, window):
-        menu = Menu(window)
-        window.config(menu=menu)
-        filemenu = Menu(menu, tearoff=False)
-        menu.add_cascade(label="File", menu=filemenu)
-        filemenu.add_command(label="Sign Language Alphabet", command=self.open_sign_win)
-        filemenu.add_command(label="Set Capture Rate", command=self.set_capture_rate)
-        filemenu.add_separator()
-        filemenu.add_command(label="Exit", command=self.exit_prog)
-        helpmenu = Menu(menu, tearoff=False)
-        menu.add_cascade(label="Help", menu=helpmenu)
-        helpmenu.add_command(label="Help guide", command=self.open_user_manual)
 
     def click_on_save(self):
         global textForm, text_file_num
@@ -160,20 +156,6 @@ class App:
         textForm.delete(0, END)
         textForm.config(state=DISABLED)
 
-    def open_sign_win(self):
-        root = tkinter.Toplevel()
-        root.resizable(False, False)
-        root.title("sign language alphabet")
-        image = Image.open("Resources\Legend.jpg")
-        image = image.resize((450, 500), Image.ANTIALIAS)
-        img = ImageTk.PhotoImage(image)
-        panel = Label(root, image=img)
-        panel.pack(side="bottom", fill="both")
-        root.mainloop()
-
-    def open_user_manual(self):
-        os.startfile("user_m.pdf")
-
     def set_capture_rate(self):
         global e1, glob_root
         root = tkinter.Toplevel()
@@ -184,16 +166,18 @@ class App:
         root.title("Set rate value")
         e1 = Entry(root)
         e1.grid(row=0, column=1)
-        Button(root, text='Set', command=self.check_valid_rate_input).grid(row=5, column=1, sticky=W, pady=4)
-        Label(root, text="A value between 5 and 40 is required", foreground="red").grid(row=7)
+        Button(root, text='Set', command=self.check_valid_rate_input).grid(
+            row=5, column=1, sticky=W, pady=4)
+        Label(root, text="A value between 5 and 40 is required",
+              foreground="red").grid(row=7)
 
     def check_valid_rate_input(self):
-        global count, freq, glob_root
+        global count, sample_rate, glob_root
         input = e1.get()
         if input.isdigit():
             rate_in = int(input)
             if 5 <= rate_in <= 40:
-                freq = rate_in
+                sample_rate = rate_in
                 count = rate_in
                 glob_root.destroy()
             else:
@@ -211,7 +195,8 @@ class App:
         ret, frame = self.vid.get_frame()
 
         if ret:
-            cv2.imwrite("frame-" + time.strftime("%d-%m-%Y-%H-%M-%S") + ".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+            cv2.imwrite("frame-" + time.strftime("%d-%m-%Y-%H-%M-%S") +
+                        ".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
     def update(self):
         # Get a frame from the video source
@@ -224,24 +209,30 @@ class App:
         self.window.after(self.delay, self.update)
 
     def keyPressed(self, event):
-        if event.keycode == 27:  # Escape
+        print(event.keycode)
+        if event.keycode == 889192475:  # Escape
             self.window.destroy()
-        elif event.keycode == 37:  # Left
+        elif event.keycode == 2063660802:  # Left
             self.vid.x0 = max((self.vid.x0 - 5, 0))
-        elif event.keycode == 38:  # Up
-            self.vid.y0 = max((self.vid.y0 - 5, 0))
-        elif event.keycode == 39:  # Right
-            self.vid.x0 = min((self.vid.x0 + 5, self.vid.frame.shape[1] - self.vid.predWidth))
-        elif event.keycode == 40:  # Down
-            self.vid.y0 = min((self.vid.y0 + 5, self.vid.frame.shape[0] - self.vid.predWidth))
-        elif event.keycode == 77:  # 'M' - Binary Mask
+        elif event.keycode == 2113992448:  # Up
+            self.viﬁﬁd.y0 = max((self.vid.y0 - 5, 0))
+        elif event.keycode == 2080438019:  # Right
+            self.vid.x0 = min(
+                (self.vid.x0 + 5, self.vid.frame.shape[1] - self.vid.predWidth))
+        elif event.keycode == 2097215233:  # Down
+            self.vid.y0 = min(
+                (self.vid.y0 + 5, self.vid.frame.shape[0] - self.vid.predWidth))
+        elif event.keycode == 771752045:  # 'M' - Binary Mask
             self.vid.showMask = not self.vid.showMask
-        elif event.keycode == 80:  # 'P' - Prediction on
+        elif event.keycode == 587202672:  # 'P' - Prediction
             self.vid.predict = not self.vid.predict
+        elif event.keycode == 285212788:  # t - TestMode
+            self.vid.testMode = not self.vid.testMode
 
 
 class VideoFrame:
     def __init__(self, video_source=0):
+        self.testMode = False
 
         # Open the video source
         self.vid = cv2.VideoCapture(video_source)
@@ -267,22 +258,26 @@ class VideoFrame:
             self.frame = cv2.flip(self.frame, 1)  # mirror
             frame = copy.deepcopy(self.frame)
             cv2.rectangle(frame, (self.x0, self.y0),
-                          (self.x0 + self.predWidth - 1, self.y0 + self.predWidth - 1),
+                          (self.x0 + self.predWidth - 1,
+                           self.y0 + self.predWidth - 1),
                           dataColor, 12)
 
             # get region of interest
-            roi = self.frame[self.y0:self.y0 + self.predWidth, self.x0:self.x0 + self.predWidth]
+            roi = self.frame[self.y0:self.y0 + self.predWidth,
+                             self.x0:self.x0 + self.predWidth]
             roi = binaryMask(roi)
 
             # apply processed roi in frame
             if self.showMask:
                 img = cv2.cvtColor(roi, cv2.COLOR_GRAY2BGR)
-                frame[self.y0:self.y0 + self.predWidth, self.x0:self.x0 + self.predWidth] = img
+                frame[self.y0:self.y0 + self.predWidth,
+                      self.x0:self.x0 + self.predWidth] = img
 
             # take data or apply predictions on ROI
             if self.predict:
                 loop = asyncio.get_event_loop()
-                loop.run_until_complete(predictImg(roi))
+                loop.run_until_complete(
+                    predictImg(roi, test_mode=self.testMode))
 
             if self.predict:
                 dataColor = (0, 250, 0)
@@ -296,8 +291,10 @@ class VideoFrame:
             # Add Letter prediction
             img_pil = Image.fromarray(frame)
             draw = ImageDraw.Draw(img_pil)
-            draw.text((self.fx, self.fy + self.fh), "Prediction: %s" % pred, font=font, fill=dataColor)
-            draw.text((self.fx, self.fy + 380), 'Sample Timer: %d ' % count, font=font, fill=dataColor)
+            draw.text((self.fx, self.fy + self.fh), "Prediction: %s" %
+                      pred, font=font, fill=dataColor)
+            draw.text((self.fx, self.fy + 380), 'Sample Timer: %d ' %
+                      count, font=font, fill=dataColor)
             # noinspection PyAttributeOutsideInit
             self.frame = np.array(img_pil)
 
@@ -313,6 +310,55 @@ class VideoFrame:
     def __del__(self):
         if self.vid.isOpened():
             self.vid.release()
+
+
+def show_popup(roi):
+    global isOn
+
+    def on_yes_click():
+        global isOn
+        value = entry.get()
+        isOn = False
+        # do something with the value here
+        TestInput.destroy()
+
+    def on_no_click():
+        global isOn
+        isOn = False
+        TestInput.destroy()
+
+    if isOn == False:
+        isOn = True
+        TestInput = tkinter.Toplevel()
+        TestInput.geometry("350x700")
+        TestInput.title("Popup")
+        # Create a photoimage object of the image in the path
+        current_roi = Image.open(roi)
+        current_roi_tk = ImageTk.PhotoImage(current_roi)
+        img_component = tkinter.Label(TestInput, image=current_roi_tk)
+        img_component.image = current_roi_tk
+
+        # Position image
+        img_component.place(x=75, y=200)
+        label = tkinter.Label(
+            TestInput, text="choose the right letter if prediction is wrong ")
+        label.pack()
+        # create the listbox and populate it with the items
+        listbox = tkinter.Listbox(TestInput)
+        print(alphaBet)
+        for item in alphaBet:
+            listbox.insert(tkinter.END, item)
+        listbox.pack()
+
+        button_frame = tkinter.Frame(TestInput)
+        button_frame.pack()
+        Righr_button = tkinter.Button(
+            button_frame, text="prediction Right", command=on_yes_click)
+        Righr_button.pack()
+
+        wrong_button = tkinter.Button(
+            button_frame, text="prediction Wrong", command=on_no_click)
+        wrong_button.pack()
 
 
 # Create a window and pass it to the Application object

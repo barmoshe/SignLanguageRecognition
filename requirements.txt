@@ -1,8 +1,8 @@
 seaborn
-sklearn
-tensorflow-gpu==2.4.0
-Keras==2.2.4
-opencv-python==4.1.0.25
+scikit-learn
+tensorflow
+Keras
+opencv-python
 imutils
 Pillow
 numpy

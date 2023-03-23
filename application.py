@@ -91,7 +91,8 @@ def main():
         ret, frame = cam.read()
         frame = cv2.flip(frame, 1)  # mirror
         window = copy.deepcopy(frame)
-        cv2.rectangle(window, (x0, y0), (x0 + width - 1, y0 + width - 1), dataColor, 12)
+        cv2.rectangle(window, (x0, y0), (x0 + width -
+                      1, y0 + width - 1), dataColor, 12)
 
         # get region of interest
         roi = frame[y0:y0 + width, x0:x0 + width]
@@ -109,16 +110,20 @@ def main():
 
         if predict:
             dataColor = (0, 250, 0)
-            cv2.putText(window, 'Strike'+'P'+'to start', (fx, fy), cv2.FONT_HERSHEY_SIMPLEX, 1.2, dataColor, 2, 1)
+            cv2.putText(window, 'Strike'+'P'+'to start', (fx, fy),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, dataColor, 2, 1)
         else:
             dataColor = (0, 0, 250)
-            cv2.putText(window, 'Prediction: OFF', (fx, fy), cv2.FONT_HERSHEY_SIMPLEX, 1.2, dataColor, 2, 1)
+            cv2.putText(window, 'Prediction: OFF', (fx, fy),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, dataColor, 2, 1)
 
         # Add Letter prediction
         img_pil = Image.fromarray(window)
         draw = ImageDraw.Draw(img_pil)
-        draw.text((fx, fy + fh), "Prediction: %s" % pred, font=font, fill=dataColor)
-        draw.text((fx, fy + 2 * fh), 'Sample Timer: %d ' % count, font=font, fill=dataColor)
+        draw.text((fx, fy + fh), "Prediction: %s" %
+                  pred, font=font, fill=dataColor)
+        draw.text((fx, fy + 2 * fh), 'Sample Timer: %d ' %
+                  count, font=font, fill=dataColor)
         window = np.array(img_pil)
 
         # Display

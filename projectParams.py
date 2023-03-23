@@ -18,7 +18,7 @@ alphaBet.append(' ')  # append space to be at the last index.
 # finals: ך ם ן ף ץ
 
 modelPath = 'Model/cnn12_model.h5'
-modelWeights = 'Model/cnn12_weights.h5'
+modelWeights = '/Users/barmoshe/Finals/Untitled/Model/trainWeights.h5'
 
 font = ImageFont.truetype(font='fonts/arial.ttf', size=32)
 
