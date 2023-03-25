@@ -18,10 +18,11 @@ from keras.models import load_model
 from projectParams import *
 from utils import *
 from tkinter import ttk
+import datetime
 
 global text_file_num, e1, sample_rate, glob_root
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 # Globals
 model = load_model(modelPath)
@@ -30,10 +31,12 @@ dataColor = (0, 255, 0)
 pred = ''
 prevPred = ''
 sentence = ""
-default_sample_rate = 2
+default_sample_rate = 9
 count = default_sample_rate
 threshold = 0.8  # Between 0 and 1
 isOn = False
+current_selection = None
+count1 = 0
 
 
 async def predictImg(roi, test_mode=False):
@@ -51,6 +54,7 @@ async def predictImg(roi, test_mode=False):
     img = np.expand_dims(img, axis=0)
     vec = model.predict(img)
     # print(np.argmax(vec[0]))
+    temp1 = classes[np.argmax(vec[0])]
     pred = convertEnglishToHebrewLetter(classes[np.argmax(vec[0])])
     maxVal = np.amax(vec)
     if maxVal < threshold or pred == '':
@@ -226,8 +230,10 @@ class App:
             self.vid.showMask = not self.vid.showMask
         elif event.keycode == 587202672:  # 'P' - Prediction
             self.vid.predict = not self.vid.predict
+
         elif event.keycode == 285212788:  # t - TestMode
             self.vid.testMode = not self.vid.testMode
+            self.vid.predict = True
 
 
 class VideoFrame:
@@ -279,13 +285,17 @@ class VideoFrame:
                 loop.run_until_complete(
                     predictImg(roi, test_mode=self.testMode))
 
-            if self.predict:
+            if self.predict and not self.testMode:
                 dataColor = (0, 250, 0)
                 cv2.putText(frame, 'Strike ' + 'P' + ' to pause', (self.fx, self.fy - 15), cv2.FONT_HERSHEY_SIMPLEX,
                             0.6, dataColor, 2, 1)
+            elif self.testMode:
+                dataColor = (250, 0, 20)
+                cv2.putText(frame, 'Strike ' + 'T' + ' to stop test', (self.fx, self.fy - 15), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.6, dataColor, 2, 1)
             else:
                 dataColor = (0, 0, 250)
-                cv2.putText(frame, 'Strike ' + 'P' + ' to start', (self.fx, self.fy - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                cv2.putText(frame, 'Strike ' + 'P' + ' to start' + ' or T to Test', (self.fx, self.fy - 10), cv2.FONT_HERSHEY_SIMPLEX,
                             0.8, dataColor, 2, 1)
 
             # Add Letter prediction
@@ -314,17 +324,24 @@ class VideoFrame:
 
 def show_popup(roi):
     global isOn
+    global count1
 
     def on_yes_click():
         global isOn
-        value = entry.get()
         isOn = False
-        # do something with the value here
         TestInput.destroy()
 
     def on_no_click():
         global isOn
+        global count1
         isOn = False
+        value = hebrew_to_english[variable.get()]
+        img = cv2.imread(roi)
+        now = datetime.datetime.now()
+        path="TempImages/{0}/{0}_{1}_".format(value, count1)+ now.strftime("%d-%m-%Y-%H-%M-%S")+".png"
+        print(path)
+        cv2.imwrite(path, img)
+        count1 += 1
         TestInput.destroy()
 
     if isOn == False:
@@ -341,14 +358,13 @@ def show_popup(roi):
         # Position image
         img_component.place(x=75, y=200)
         label = tkinter.Label(
-            TestInput, text="choose the right letter if prediction is wrong ")
+            TestInput, text="current prediction is: %s\nchoose the right letter if prediction is wrong " % pred)
         label.pack()
-        # create the listbox and populate it with the items
-        listbox = tkinter.Listbox(TestInput)
-        print(alphaBet)
-        for item in alphaBet:
-            listbox.insert(tkinter.END, item)
-        listbox.pack()
+
+        variable = tkinter.StringVar(TestInput, alphaBet[0])
+        option_menu = tkinter.OptionMenu(
+            TestInput, variable, *hebrew_to_english.keys())
+        option_menu.pack()
 
         button_frame = tkinter.Frame(TestInput)
         button_frame.pack()
@@ -359,6 +375,11 @@ def show_popup(roi):
         wrong_button = tkinter.Button(
             button_frame, text="prediction Wrong", command=on_no_click)
         wrong_button.pack()
+
+        TestInput.protocol("WM_DELETE_WINDOW", on_no_click)
+
+        TestInput.grab_set()  # disable other windows while the popup is open
+        TestInput.wait_window()  # wait for the popup window to be destroyed
 
 
 # Create a window and pass it to the Application object
