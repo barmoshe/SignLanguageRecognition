@@ -48,7 +48,7 @@ hebrew_to_english = {
 }
 
 
-
+test_csv_path = 'test.csv'
 modelPath = 'Model/cnn12_model.h5'
 modelWeights = '/Users/barmoshe/Finals/Untitled/Model/trainWeights.h5'
 

@@ -19,6 +19,7 @@ from projectParams import *
 from utils import *
 from tkinter import ttk
 import datetime
+import pandas as pd
 
 global text_file_num, e1, sample_rate, glob_root
 
@@ -37,6 +38,7 @@ threshold = 0.8  # Between 0 and 1
 isOn = False
 current_selection = None
 count1 = 0
+test_df = pd.read_csv(test_csv_path)
 
 
 async def predictImg(roi, test_mode=False):
@@ -89,7 +91,7 @@ async def predictImg(roi, test_mode=False):
 
 class App:
     def __init__(self, window, window_title, video_source=0):
-        global textForm, text_file_num, sample_rate
+        global textForm, text_file_num, sample_rate, test_df
         # window.geometry("700x620+400+100")  # x:y
         text_file_num = 1
         sample_rate = default_sample_rate
@@ -98,7 +100,6 @@ class App:
         self.window = window
         self.window.title(window_title)
         self.video_source = video_source
-
         # open video source (by default this will try to open the computer webcam)
         self.vid = VideoFrame(self.video_source)
 
@@ -213,6 +214,7 @@ class App:
         self.window.after(self.delay, self.update)
 
     def keyPressed(self, event):
+        global test_df
         print(event.keycode)
         if event.keycode == 889192475:  # Escape
             self.window.destroy()
@@ -232,8 +234,15 @@ class App:
             self.vid.predict = not self.vid.predict
 
         elif event.keycode == 285212788:  # t - TestMode
-            self.vid.testMode = not self.vid.testMode
-            self.vid.predict = True
+            if self.vid.testMode:
+                self.vid.testMode = False
+                test_df.to_csv('test.csv', index=False)
+                self.vid.predict = False
+                print_csv_to_console()
+            else:
+                self.vid.testMode = True
+                self.vid.predict = True
+                test_df = pd.read_csv(test_csv_path)
 
 
 class VideoFrame:
@@ -321,13 +330,25 @@ class VideoFrame:
         if self.vid.isOpened():
             self.vid.release()
 
+def print_csv_to_console():
+    print_df=pd.read_csv('test.csv')
+    print(print_df)
+def write_to_csv(prediction, rightprediction):
+    global test_df
+    current_time = datetime.datetime.now()
+    test_df = test_df.append(
+        {'prediction': prediction, 'right_prediction': rightprediction, 'time': current_time}, ignore_index=True)
+
 
 def show_popup(roi):
     global isOn
     global count1
+    global TestInput
 
     def on_yes_click():
         global isOn
+        global test_df
+        write_to_csv(pred, pred)
         isOn = False
         TestInput.destroy()
 
@@ -338,10 +359,12 @@ def show_popup(roi):
         value = hebrew_to_english[variable.get()]
         img = cv2.imread(roi)
         now = datetime.datetime.now()
-        path="TempImages/{0}/{0}_{1}_".format(value, count1)+ now.strftime("%d-%m-%Y-%H-%M-%S")+".png"
+        path = "TempImages/{0}/{0}_{1}_".format(
+            value, count1) + now.strftime("%d-%m-%Y-%H-%M-%S")+".png"
         print(path)
         cv2.imwrite(path, img)
         count1 += 1
+        write_to_csv(pred, variable.get())
         TestInput.destroy()
 
     if isOn == False:
